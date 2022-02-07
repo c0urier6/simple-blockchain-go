@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -11,12 +12,15 @@ import (
 var (
 	blockChain     = NewBlockChain()
 	nodeIdentifier = strings.ReplaceAll(uuid.New().String(), "-", "")
+
+	port = flag.String("p", "8777", "port")
 )
 
 func main() {
+	flag.Parse()
 	r := NewRoute()
 
-	_ = r.Run(":8777")
+	_ = r.Run(":" + *port)
 }
 
 func NewRoute() *gin.Engine {
@@ -25,14 +29,14 @@ func NewRoute() *gin.Engine {
 	r.GET("/chain", chain)
 	r.POST("/transactions/new", newTransaction)
 	r.POST("/mine", mine)
-
+	r.POST("/nodes/register", register)
+	r.POST("/nodes/resolve", resolve)
 	return r
 }
 
 func chain(c *gin.Context) {
 	c.JSON(http.StatusOK, formatResp(map[string]interface{}{
-		"node":   nodeIdentifier,
-		"chain":  blockChain,
+		"chain":  blockChain.Blocks,
 		"length": len(blockChain.Blocks),
 	}, 0, "ok"))
 }
@@ -56,6 +60,30 @@ func mine(c *gin.Context) {
 	block := blockChain.NewBlock(proof, nil)
 
 	c.JSON(http.StatusOK, formatResp(block, 0, "ok"))
+}
+
+func register(c *gin.Context) {
+	nodes := make([]string, 0)
+	err := c.BindJSON(&nodes)
+	if err != nil {
+		c.JSON(http.StatusOK, formatResp("", 10000, fmt.Sprintf("unexpected input data: %v", err)))
+		return
+	}
+	for _, node := range nodes {
+		blockChain.RegisterNode(node)
+	}
+	c.JSON(http.StatusOK, formatResp(map[string]interface{}{
+		"total_nodes": blockChain.TotalNode(),
+	}, 0, "ok"))
+}
+
+func resolve(c *gin.Context) {
+	replaced := blockChain.ResolveConflicts()
+	c.JSON(http.StatusOK, formatResp(map[string]interface{}{
+		"replaced": replaced,
+		"chain":    blockChain.Blocks,
+		"length":   len(blockChain.Blocks),
+	}, 0, "ok"))
 }
 
 func formatResp(data interface{}, code int64, msg string) map[string]interface{} {
