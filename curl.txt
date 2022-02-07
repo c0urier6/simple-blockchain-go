@@ -1,0 +1,9 @@
+// add transaction
+curl -X POST -H "Content-Type: application/json" -d '{
+ "sender": "d4ee26eee15148ee92c6cd394edd974e",
+ "recipient": "f9817ed9a3824d1eaf492e0a6de49a9e",
+ "amount": 5
+}' "http://localhost:8777/transactions/new"
+
+// mine
+curl -X POST "http://localhost:8777/mine"
